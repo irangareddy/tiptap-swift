@@ -24,7 +24,6 @@ public struct RichTextEditorSheet: View {
     @Binding var htmlContent: String
     @Environment(\.dismiss) private var dismiss
 
-    @State private var localContent: String
     @State private var isEditorReady = false
     @State private var editorContext = EditorContext()
     @State private var linkURL = ""
@@ -44,7 +43,6 @@ public struct RichTextEditorSheet: View {
         placeholder: String = "Start typing..."
     ) {
         self._htmlContent = htmlContent
-        self._localContent = State(initialValue: htmlContent.wrappedValue)
         self.title = title
         self.placeholder = placeholder
     }
@@ -53,7 +51,7 @@ public struct RichTextEditorSheet: View {
         NavigationStack {
             ZStack {
                 RichTextEditorView(
-                    htmlContent: $localContent,
+                    htmlContent: $htmlContent,
                     placeholder: placeholder,
                     editorContext: editorContext,
                     onEditorReady: {
@@ -79,18 +77,16 @@ public struct RichTextEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", systemImage: "checkmark") {
-                        htmlContent = localContent
                         dismiss()
                     }
                 }
             }
             .alert("Add Link", isPresented: $editorContext.isLinkAlertPresented) {
-                TextField("https://example.com", text: $linkURL)
+                TextField("URL, email, or phone number", text: $linkURL)
                     .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
                 Button("Add") {
                     if !linkURL.isEmpty {
-                        editorContext.setLink(url: linkURL)
+                        editorContext.setLink(url: linkURL.autoDetectedLink)
                     }
                     linkURL = ""
                 }
@@ -101,6 +97,8 @@ public struct RichTextEditorSheet: View {
                 Button("Cancel", role: .cancel) {
                     linkURL = ""
                 }
+            } message: {
+                Text("Auto-detects links, emails, and phone numbers")
             }
             .alert("Add Image", isPresented: $editorContext.isImageAlertPresented) {
                 TextField("https://example.com/image.jpg", text: $imageURL)

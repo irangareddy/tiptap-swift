@@ -45,6 +45,10 @@ public final class EditorContext {
         run("window.toggleStrike()")
     }
 
+    public func toggleUnderline() {
+        run("window.toggleUnderline()")
+    }
+
     // MARK: - Block Formatting
 
     public func toggleHeading(level: Int) {
@@ -82,6 +86,15 @@ public final class EditorContext {
 
     public func removeLink() {
         run("window.setLink(null)")
+    }
+
+    // MARK: - Text Alignment
+
+    public func setTextAlign(_ alignment: String) {
+        let escaped = alignment
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        run("window.setTextAlign('\(escaped)')")
     }
 
     // MARK: - Images

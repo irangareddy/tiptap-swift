@@ -2,156 +2,145 @@
 //  FormattingAccessoryView.swift
 //  TipTapSwift
 //
-//  A native UIKit input accessory view with formatting buttons for the TipTap editor.
+//  A native input accessory view with formatting buttons for the TipTap editor.
 //  Appears above the keyboard when the WKWebView is focused.
+//  UIKit glass background (works in keyboard window) + SwiftUI toolbar content.
 //
 
+import SwiftUI
 import UIKit
+
+// MARK: - SwiftUI Toolbar Content
+
+private struct FormattingToolbar: View {
+    let context: EditorContext
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: true) {
+                HStack(spacing: 4) {
+                    // 1. Text emphasis
+                    iconButton("bold") { context.toggleBold() }
+                    iconButton("italic") { context.toggleItalic() }
+                    iconButton("underline") { context.toggleUnderline() }
+
+                    // 2. Headings
+                    textButton("H1") { context.toggleHeading(level: 1) }
+                    textButton("H2") { context.toggleHeading(level: 2) }
+                    textButton("H3") { context.toggleHeading(level: 3) }
+
+                    // 3. Lists
+                    iconButton("list.bullet") { context.toggleBulletList() }
+                    iconButton("list.number") { context.toggleOrderedList() }
+
+                    // 4. Links & Images
+                    iconButton("link") { context.isLinkAlertPresented = true }
+                    iconButton("photo") { context.isImageAlertPresented = true }
+
+                    // 5. Alignment
+                    iconButton("text.alignleft") { context.setTextAlign("left") }
+                    iconButton("text.aligncenter") { context.setTextAlign("center") }
+                    iconButton("text.alignright") { context.setTextAlign("right") }
+
+                    // 6. Block formatting
+                    iconButton("text.quote") { context.toggleBlockquote() }
+                    iconButton("minus") { context.setHorizontalRule() }
+                    iconButton("strikethrough") { context.toggleStrike() }
+                }
+                .padding(.horizontal, 6)
+            }
+            .scrollIndicatorsFlash(onAppear: true)
+
+            Divider()
+                .frame(height: 24)
+                .padding(.leading, 6)
+                .padding(.trailing, 4)
+
+            Button {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil, from: nil, for: nil
+                )
+            } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .font(.system(size: 16, weight: .medium))
+            }
+            .tint(.primary)
+            .padding(.trailing, 4)
+        }
+        .frame(height: 44)
+    }
+
+    private func iconButton(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .medium))
+        }
+        .tint(.primary)
+        .frame(width: 34, height: 36)
+    }
+
+    private func textButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+        }
+        .tint(.primary)
+        .frame(width: 34, height: 36)
+    }
+}
+
+// MARK: - UIKit Host
 
 @MainActor
 final class FormattingAccessoryView: UIInputView {
 
-    private weak var context: EditorContext?
+    private var hostingController: UIHostingController<FormattingToolbar>?
 
     init(context: EditorContext) {
-        self.context = context
         super.init(
-            frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44),
-            inputViewStyle: .keyboard
+            frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 52),
+            inputViewStyle: .default
         )
         autoresizingMask = .flexibleWidth
-        setupButtons()
+
+        // Glass / material background (UIKit — renders reliably in keyboard window)
+        let effectView: UIVisualEffectView
+        if #available(iOS 26, *) {
+            effectView = UIVisualEffectView(effect: UIGlassEffect())
+        } else {
+            effectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        }
+        effectView.translatesAutoresizingMaskIntoConstraints = false
+        effectView.clipsToBounds = true
+        effectView.layer.cornerRadius = 12
+        effectView.layer.cornerCurve = .continuous
+        addSubview(effectView)
+
+        // SwiftUI toolbar content
+        let hosting = UIHostingController(rootView: FormattingToolbar(context: context))
+        hosting.view.backgroundColor = .clear
+        hosting.view.translatesAutoresizingMaskIntoConstraints = false
+        hosting.safeAreaRegions = []
+        addSubview(hosting.view)
+
+        NSLayoutConstraint.activate([
+            // Glass background with 8pt padding
+            effectView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            effectView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            effectView.topAnchor.constraint(equalTo: topAnchor),
+            effectView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+
+            // SwiftUI content aligned to the glass area
+            hosting.view.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            hosting.view.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            hosting.view.topAnchor.constraint(equalTo: effectView.topAnchor),
+            hosting.view.bottomAnchor.constraint(equalTo: effectView.bottomAnchor)
+        ])
+
+        hostingController = hosting
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
-
-    // MARK: - Setup
-
-    private func setupButtons() {
-        let scrollView = UIScrollView()
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(scrollView)
-
-        NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.spacing = 2
-        stack.alignment = .center
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(
-                equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -8),
-            stack.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
-            stack.heightAnchor.constraint(equalToConstant: 36)
-        ])
-
-        // Inline formatting
-        stack.addArrangedSubview(makeButton("bold", action: #selector(boldTapped)))
-        stack.addArrangedSubview(makeButton("italic", action: #selector(italicTapped)))
-        stack.addArrangedSubview(makeButton("strikethrough", action: #selector(strikeTapped)))
-        stack.addArrangedSubview(makeSeparator())
-
-        // Headings
-        stack.addArrangedSubview(makeHeadingMenuButton())
-        stack.addArrangedSubview(makeSeparator())
-
-        // Lists
-        stack.addArrangedSubview(makeButton("list.bullet", action: #selector(bulletListTapped)))
-        stack.addArrangedSubview(makeButton("list.number", action: #selector(orderedListTapped)))
-        stack.addArrangedSubview(makeSeparator())
-
-        // Block formatting
-        stack.addArrangedSubview(makeButton("text.quote", action: #selector(blockquoteTapped)))
-        stack.addArrangedSubview(makeButton("minus", action: #selector(hrTapped)))
-        stack.addArrangedSubview(makeSeparator())
-
-        // Link & Image
-        stack.addArrangedSubview(makeButton("link", action: #selector(linkTapped)))
-        stack.addArrangedSubview(makeButton("photo", action: #selector(imageTapped)))
-        stack.addArrangedSubview(makeSeparator())
-
-        // Dismiss keyboard
-        stack.addArrangedSubview(
-            makeButton("keyboard.chevron.compact.down", action: #selector(dismissKeyboardTapped)))
-    }
-
-    // MARK: - Factory
-
-    private func makeButton(_ systemName: String, action: Selector) -> UIButton {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        button.setImage(UIImage(systemName: systemName, withConfiguration: config), for: .normal)
-        button.addTarget(self, action: action, for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 36),
-            button.heightAnchor.constraint(equalToConstant: 36)
-        ])
-        return button
-    }
-
-    private func makeHeadingMenuButton() -> UIButton {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        button.setImage(
-            UIImage(systemName: "textformat.size", withConfiguration: config), for: .normal)
-        button.menu = UIMenu(children: [
-            UIAction(title: "Heading 1", image: UIImage(systemName: "h1")) {
-                [weak self] _ in self?.context?.toggleHeading(level: 1)
-            },
-            UIAction(title: "Heading 2", image: UIImage(systemName: "h2")) {
-                [weak self] _ in self?.context?.toggleHeading(level: 2)
-            },
-            UIAction(title: "Heading 3", image: UIImage(systemName: "h3")) {
-                [weak self] _ in self?.context?.toggleHeading(level: 3)
-            }
-        ])
-        button.showsMenuAsPrimaryAction = true
-        button.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 36),
-            button.heightAnchor.constraint(equalToConstant: 36)
-        ])
-        return button
-    }
-
-    private func makeSeparator() -> UIView {
-        let view = UIView()
-        view.backgroundColor = .separator
-        view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            view.widthAnchor.constraint(equalToConstant: 1),
-            view.heightAnchor.constraint(equalToConstant: 20)
-        ])
-        return view
-    }
-
-    // MARK: - Actions
-
-    @objc private func boldTapped() { context?.toggleBold() }
-    @objc private func italicTapped() { context?.toggleItalic() }
-    @objc private func strikeTapped() { context?.toggleStrike() }
-    @objc private func bulletListTapped() { context?.toggleBulletList() }
-    @objc private func orderedListTapped() { context?.toggleOrderedList() }
-    @objc private func blockquoteTapped() { context?.toggleBlockquote() }
-    @objc private func hrTapped() { context?.setHorizontalRule() }
-    @objc private func linkTapped() { context?.isLinkAlertPresented = true }
-    @objc private func imageTapped() { context?.isImageAlertPresented = true }
-
-    @objc private func dismissKeyboardTapped() {
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
 }

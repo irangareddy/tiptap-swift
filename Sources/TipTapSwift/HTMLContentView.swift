@@ -35,6 +35,7 @@ public struct HTMLContentView: UIViewRepresentable {
 
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.dataDetectorTypes = [.phoneNumber, .link, .address]
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "heightChanged")
         config.userContentController = contentController

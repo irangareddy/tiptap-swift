@@ -64,8 +64,8 @@ public struct RichTextEditorView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
-        webView.scrollView.isScrollEnabled = false
-        webView.scrollView.bounces = false
+        webView.scrollView.isScrollEnabled = true
+        webView.scrollView.bounces = true
         webView.navigationDelegate = context.coordinator
 
         context.coordinator.webView = webView
