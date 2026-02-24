@@ -11,18 +11,7 @@ import WebKit
 /// A command channel that lets native SwiftUI controls trigger TipTap formatting.
 ///
 /// ``RichTextEditorView`` populates the internal web view reference automatically.
-/// Use the provided methods in a SwiftUI toolbar to drive the editor.
-///
-/// ```swift
-/// @State private var context = EditorContext()
-///
-/// RichTextEditorView(htmlContent: $html, editorContext: context)
-///     .toolbar {
-///         ToolbarItemGroup(placement: .keyboard) {
-///             Button { context.toggleBold() } label: { Image(systemName: "bold") }
-///         }
-///     }
-/// ```
+/// Use the provided methods to drive the editor from native controls.
 @MainActor
 @Observable
 public final class EditorContext {
@@ -31,6 +20,14 @@ public final class EditorContext {
 
     /// Set by RichTextEditorView's coordinator once the WKWebView is created.
     weak var webView: WKWebView?
+
+    // MARK: - Alert State (observed by RichTextEditorSheet)
+
+    /// Set to `true` to present a link URL input alert.
+    public var isLinkAlertPresented = false
+
+    /// Set to `true` to present an image URL input alert.
+    public var isImageAlertPresented = false
 
     public init() {}
 

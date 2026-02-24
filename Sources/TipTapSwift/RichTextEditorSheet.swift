@@ -3,12 +3,15 @@
 //  TipTapSwift
 //
 //  A ready-to-use sheet for editing HTML content with the TipTap editor.
+//  Formatting toolbar appears as a native input accessory view above the keyboard.
 //
 
 import SwiftUI
 
-/// A sheet that wraps ``RichTextEditorView`` with Cancel / Done toolbar buttons
-/// and a native formatting toolbar pinned above the editor.
+/// A sheet that wraps ``RichTextEditorView`` with Cancel / Done toolbar buttons.
+///
+/// A native formatting toolbar appears above the keyboard automatically via
+/// the ``EditorContext`` input accessory view.
 ///
 /// Works on a local copy of the content and only commits changes on "Done".
 ///
@@ -24,8 +27,6 @@ public struct RichTextEditorSheet: View {
     @State private var localContent: String
     @State private var isEditorReady = false
     @State private var editorContext = EditorContext()
-    @State private var showLinkAlert = false
-    @State private var showImageAlert = false
     @State private var linkURL = ""
     @State private var imageURL = ""
 
@@ -50,33 +51,22 @@ public struct RichTextEditorSheet: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Formatting toolbar — always visible, pinned below nav bar
-                formattingToolbar
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(.bar)
-
-                Divider()
-
-                // Editor
-                ZStack {
-                    RichTextEditorView(
-                        htmlContent: $localContent,
-                        placeholder: placeholder,
-                        editorContext: editorContext,
-                        onEditorReady: {
-                            withAnimation(.easeIn(duration: 0.2)) {
-                                isEditorReady = true
-                            }
+            ZStack {
+                RichTextEditorView(
+                    htmlContent: $localContent,
+                    placeholder: placeholder,
+                    editorContext: editorContext,
+                    onEditorReady: {
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            isEditorReady = true
                         }
-                    )
-                    .opacity(isEditorReady ? 1 : 0)
-
-                    if !isEditorReady {
-                        ProgressView("Loading editor...")
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                )
+                .opacity(isEditorReady ? 1 : 0)
+
+                if !isEditorReady {
+                    ProgressView("Loading editor...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .navigationTitle(title)
@@ -94,7 +84,7 @@ public struct RichTextEditorSheet: View {
                     }
                 }
             }
-            .alert("Add Link", isPresented: $showLinkAlert) {
+            .alert("Add Link", isPresented: $editorContext.isLinkAlertPresented) {
                 TextField("https://example.com", text: $linkURL)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
@@ -112,7 +102,7 @@ public struct RichTextEditorSheet: View {
                     linkURL = ""
                 }
             }
-            .alert("Add Image", isPresented: $showImageAlert) {
+            .alert("Add Image", isPresented: $editorContext.isImageAlertPresented) {
                 TextField("https://example.com/image.jpg", text: $imageURL)
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
@@ -126,68 +116,6 @@ public struct RichTextEditorSheet: View {
                     imageURL = ""
                 }
             }
-        }
-    }
-
-    private var formattingToolbar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                // Inline formatting
-                Button { editorContext.toggleBold() } label: {
-                    Image(systemName: "bold")
-                }
-                Button { editorContext.toggleItalic() } label: {
-                    Image(systemName: "italic")
-                }
-                Button { editorContext.toggleStrike() } label: {
-                    Image(systemName: "strikethrough")
-                }
-
-                Divider().frame(height: 20)
-
-                // Headings
-                Menu {
-                    Button("Heading 1") { editorContext.toggleHeading(level: 1) }
-                    Button("Heading 2") { editorContext.toggleHeading(level: 2) }
-                    Button("Heading 3") { editorContext.toggleHeading(level: 3) }
-                } label: {
-                    Image(systemName: "textformat.size")
-                }
-
-                Divider().frame(height: 20)
-
-                // Lists
-                Button { editorContext.toggleBulletList() } label: {
-                    Image(systemName: "list.bullet")
-                }
-                Button { editorContext.toggleOrderedList() } label: {
-                    Image(systemName: "list.number")
-                }
-
-                Divider().frame(height: 20)
-
-                // Block formatting
-                Button { editorContext.toggleBlockquote() } label: {
-                    Image(systemName: "text.quote")
-                }
-                Button { editorContext.toggleCodeBlock() } label: {
-                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                }
-                Button { editorContext.setHorizontalRule() } label: {
-                    Image(systemName: "minus")
-                }
-
-                Divider().frame(height: 20)
-
-                // Link & Image
-                Button { showLinkAlert = true } label: {
-                    Image(systemName: "link")
-                }
-                Button { showImageAlert = true } label: {
-                    Image(systemName: "photo")
-                }
-            }
-            .imageScale(.large)
         }
     }
 }

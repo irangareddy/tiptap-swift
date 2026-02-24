@@ -11,7 +11,7 @@ import WebKit
 
 /// A WYSIWYG rich text editor powered by TipTap, rendered inside a WKWebView.
 ///
-/// Use this view when you need full rich text editing with a formatting toolbar.
+/// Use this view when you need full rich text editing.
 /// Content is stored as HTML.
 ///
 /// ```swift
@@ -32,7 +32,7 @@ public struct RichTextEditorView: UIViewRepresentable {
     /// - Parameters:
     ///   - htmlContent: Bidirectional binding to the HTML content string.
     ///   - placeholder: Placeholder text shown when the editor is empty.
-    ///   - editorContext: Optional context for driving formatting from native SwiftUI controls.
+    ///   - editorContext: Optional context for driving formatting from native controls.
     ///   - onEditorReady: Called once the TipTap editor has fully initialized.
     public init(
         htmlContent: Binding<String>,
@@ -71,6 +71,13 @@ public struct RichTextEditorView: UIViewRepresentable {
         context.coordinator.webView = webView
         editorContext?.webView = webView
 
+        // Install native formatting toolbar as the keyboard input accessory
+        if let editorContext {
+            let accessoryView = FormattingAccessoryView(context: editorContext)
+            context.coordinator.accessoryView = accessoryView
+            Self.installInputAccessoryView(accessoryView, on: webView)
+        }
+
         if let resourceURL = Bundle.module.url(
             forResource: "tiptap-editor",
             withExtension: "html",
@@ -108,6 +115,7 @@ public struct RichTextEditorView: UIViewRepresentable {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "editorReady")
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "editorHeightChanged")
         coordinator.webView = nil
+        coordinator.accessoryView = nil
     }
 
     // MARK: - Helpers
@@ -120,11 +128,47 @@ public struct RichTextEditorView: UIViewRepresentable {
             .replacingOccurrences(of: "\r", with: "\\r")
     }
 
+    // MARK: - Input Accessory View Installation
+
+    /// Replaces WKWebView's default input accessory view by dynamically subclassing WKContentView.
+    /// This is the standard approach used by production rich text editors on iOS.
+    private static func installInputAccessoryView(_ accessoryView: UIView, on webView: WKWebView) {
+        // Find WKContentView — the internal UIResponder that becomes first responder on keyboard input
+        guard let contentView = webView.scrollView.subviews.first(where: {
+            NSStringFromClass(type(of: $0)).hasPrefix("WKContent")
+        }) else { return }
+
+        let contentViewClass: AnyClass = type(of: contentView)
+        let customClassName = "_TipTapContent_\(UInt(bitPattern: ObjectIdentifier(contentView)))"
+
+        let customClass: AnyClass
+        if let existingClass = objc_lookUpClass(customClassName) {
+            customClass = existingClass
+        } else {
+            guard let newClass = objc_allocateClassPair(contentViewClass, customClassName, 0) else { return }
+
+            let selector = #selector(getter: UIResponder.inputAccessoryView)
+            guard let method = class_getInstanceMethod(UIResponder.self, selector) else { return }
+            let typeEncoding = method_getTypeEncoding(method)
+
+            let block: @convention(block) (AnyObject) -> UIView? = { [weak accessoryView] _ in
+                accessoryView
+            }
+            let imp = imp_implementationWithBlock(block)
+            class_addMethod(newClass, selector, imp, typeEncoding)
+            objc_registerClassPair(newClass)
+            customClass = newClass
+        }
+
+        object_setClass(contentView, customClass)
+    }
+
     // MARK: - Coordinator
 
     public final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, @unchecked Sendable {
         var parent: RichTextEditorView
         var webView: WKWebView?
+        var accessoryView: FormattingAccessoryView?
         var lastContentFromJS: String = ""
         var isEditorReady = false
         var currentTheme: String?
