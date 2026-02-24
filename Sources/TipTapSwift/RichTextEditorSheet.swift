@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// A sheet that wraps ``RichTextEditorView`` with Cancel / Done toolbar buttons
-/// and a native SwiftUI keyboard toolbar for formatting.
+/// and a native formatting toolbar pinned above the editor.
 ///
 /// Works on a local copy of the content and only commits changes on "Done".
 ///
@@ -50,22 +50,33 @@ public struct RichTextEditorSheet: View {
 
     public var body: some View {
         NavigationStack {
-            ZStack {
-                RichTextEditorView(
-                    htmlContent: $localContent,
-                    placeholder: placeholder,
-                    editorContext: editorContext,
-                    onEditorReady: {
-                        withAnimation(.easeIn(duration: 0.2)) {
-                            isEditorReady = true
-                        }
-                    }
-                )
-                .opacity(isEditorReady ? 1 : 0)
+            VStack(spacing: 0) {
+                // Formatting toolbar — always visible, pinned below nav bar
+                formattingToolbar
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(.bar)
 
-                if !isEditorReady {
-                    ProgressView("Loading editor...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Divider()
+
+                // Editor
+                ZStack {
+                    RichTextEditorView(
+                        htmlContent: $localContent,
+                        placeholder: placeholder,
+                        editorContext: editorContext,
+                        onEditorReady: {
+                            withAnimation(.easeIn(duration: 0.2)) {
+                                isEditorReady = true
+                            }
+                        }
+                    )
+                    .opacity(isEditorReady ? 1 : 0)
+
+                    if !isEditorReady {
+                        ProgressView("Loading editor...")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
             }
             .navigationTitle(title)
@@ -81,9 +92,6 @@ public struct RichTextEditorSheet: View {
                         htmlContent = localContent
                         dismiss()
                     }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    formattingToolbar
                 }
             }
             .alert("Add Link", isPresented: $showLinkAlert) {
@@ -121,7 +129,6 @@ public struct RichTextEditorSheet: View {
         }
     }
 
-    @ViewBuilder
     private var formattingToolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
@@ -178,18 +185,6 @@ public struct RichTextEditorSheet: View {
                 }
                 Button { showImageAlert = true } label: {
                     Image(systemName: "photo")
-                }
-
-                Divider().frame(height: 20)
-
-                // Dismiss keyboard
-                Button {
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil, from: nil, for: nil
-                    )
-                } label: {
-                    Image(systemName: "keyboard.chevron.compact.down")
                 }
             }
             .imageScale(.large)
