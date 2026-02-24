@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="tiptap-editor.css">
+    <script src="tiptap-bundle.js"></script>
+</head>
+<body>
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <button data-action="toggleHeading" data-level="1" title="Heading 1">H1</button>
+        <button data-action="toggleHeading" data-level="2" title="Heading 2">H2</button>
+        <button data-action="toggleHeading" data-level="3" title="Heading 3">H3</button>
+        <span class="separator"></span>
+        <button data-action="toggleBold" title="Bold"><strong>B</strong></button>
+        <button data-action="toggleItalic" title="Italic"><em>I</em></button>
+        <button data-action="toggleStrike" title="Strikethrough"><s>S</s></button>
+        <span class="separator"></span>
+        <button data-action="toggleBulletList" title="Bullet List">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg>
+        </button>
+        <button data-action="toggleOrderedList" title="Ordered List">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><text x="2" y="8" font-size="8" fill="currentColor" stroke="none" font-family="system-ui">1</text><text x="2" y="14" font-size="8" fill="currentColor" stroke="none" font-family="system-ui">2</text><text x="2" y="20" font-size="8" fill="currentColor" stroke="none" font-family="system-ui">3</text></svg>
+        </button>
+        <span class="separator"></span>
+        <button data-action="toggleBlockquote" title="Blockquote">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+        </button>
+        <button data-action="setLink" title="Link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+    </div>
+
+    <!-- Editor -->
+    <div id="editor"></div>
+
+    <script>
+        // Toolbar click handling
+        document.getElementById('toolbar').addEventListener('click', function(e) {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            if (!action) return;
+
+            if (action === 'toggleHeading') {
+                const level = parseInt(button.dataset.level);
+                window.toggleHeading(level);
+            } else if (action === 'setLink') {
+                if (window.isActive('link')) {
+                    window.setLink(null);
+                } else {
+                    // Prompt for URL - iOS will handle this via JS prompt
+                    const url = prompt('Enter URL:');
+                    if (url) {
+                        window.setLink(url);
+                    }
+                }
+            } else if (window[action]) {
+                window[action]();
+            }
+
+            updateToolbarState();
+        });
+
+        function updateToolbarState() {
+            const buttons = document.querySelectorAll('#toolbar button');
+            buttons.forEach(function(btn) {
+                const action = btn.dataset.action;
+                if (!action) return;
+
+                let active = false;
+                if (action === 'toggleHeading') {
+                    active = window.isActive('heading', { level: parseInt(btn.dataset.level) });
+                } else if (action === 'toggleBold') {
+                    active = window.isActive('bold');
+                } else if (action === 'toggleItalic') {
+                    active = window.isActive('italic');
+                } else if (action === 'toggleStrike') {
+                    active = window.isActive('strike');
+                } else if (action === 'toggleBulletList') {
+                    active = window.isActive('bulletList');
+                } else if (action === 'toggleOrderedList') {
+                    active = window.isActive('orderedList');
+                } else if (action === 'toggleBlockquote') {
+                    active = window.isActive('blockquote');
+                } else if (action === 'setLink') {
+                    active = window.isActive('link');
+                }
+
+                btn.classList.toggle('is-active', active);
+            });
+        }
+
+        // Poll toolbar state on selection changes
+        setInterval(updateToolbarState, 300);
+
+        // Initialize editor when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            window.initEditor('', 'Describe your event...');
+        });
+    </script>
+</body>
+</html>
