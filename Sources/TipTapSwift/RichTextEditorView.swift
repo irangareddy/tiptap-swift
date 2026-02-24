@@ -16,12 +16,14 @@ import WebKit
 ///
 /// ```swift
 /// @State private var html = ""
+/// @State private var context = EditorContext()
 ///
-/// RichTextEditorView(htmlContent: $html)
+/// RichTextEditorView(htmlContent: $html, editorContext: context)
 /// ```
 public struct RichTextEditorView: UIViewRepresentable {
     @Binding var htmlContent: String
     var placeholder: String
+    var editorContext: EditorContext?
     var onEditorReady: (() -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -30,14 +32,17 @@ public struct RichTextEditorView: UIViewRepresentable {
     /// - Parameters:
     ///   - htmlContent: Bidirectional binding to the HTML content string.
     ///   - placeholder: Placeholder text shown when the editor is empty.
+    ///   - editorContext: Optional context for driving formatting from native SwiftUI controls.
     ///   - onEditorReady: Called once the TipTap editor has fully initialized.
     public init(
         htmlContent: Binding<String>,
         placeholder: String = "Start typing...",
+        editorContext: EditorContext? = nil,
         onEditorReady: (() -> Void)? = nil
     ) {
         self._htmlContent = htmlContent
         self.placeholder = placeholder
+        self.editorContext = editorContext
         self.onEditorReady = onEditorReady
     }
 
@@ -64,6 +69,7 @@ public struct RichTextEditorView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
 
         context.coordinator.webView = webView
+        editorContext?.webView = webView
 
         if let resourceURL = Bundle.module.url(
             forResource: "tiptap-editor",
@@ -79,6 +85,9 @@ public struct RichTextEditorView: UIViewRepresentable {
 
     public func updateUIView(_ webView: WKWebView, context: Context) {
         let coordinator = context.coordinator
+
+        // Keep editor context wired to the current webView
+        editorContext?.webView = webView
 
         // Update theme when color scheme changes
         let theme = colorScheme == .dark ? "dark" : "light"

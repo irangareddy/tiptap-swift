@@ -2,11 +2,6 @@
 :root {
     --bg-color: #ffffff;
     --text-color: #000000;
-    --toolbar-bg: #f2f2f7;
-    --toolbar-border: #c6c6c8;
-    --button-hover: #e5e5ea;
-    --button-active: #007aff;
-    --button-active-bg: rgba(0, 122, 255, 0.12);
     --placeholder-color: #8e8e93;
     --blockquote-border: #c6c6c8;
     --code-bg: #f2f2f7;
@@ -18,11 +13,6 @@
 [data-theme="dark"] {
     --bg-color: #1c1c1e;
     --text-color: #ffffff;
-    --toolbar-bg: #2c2c2e;
-    --toolbar-border: #38383a;
-    --button-hover: #3a3a3c;
-    --button-active: #0a84ff;
-    --button-active-bg: rgba(10, 132, 255, 0.2);
     --placeholder-color: #636366;
     --blockquote-border: #48484a;
     --code-bg: #2c2c2e;
@@ -44,67 +34,6 @@ html, body {
     line-height: 1.6;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
-}
-
-/* Toolbar */
-#toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 6px 8px;
-    background-color: var(--toolbar-bg);
-    border-bottom: 0.5px solid var(--toolbar-border);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-}
-
-#toolbar::-webkit-scrollbar {
-    display: none;
-}
-
-#toolbar button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    padding: 4px 8px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-color);
-    font-family: var(--font-family);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0;
-}
-
-#toolbar button:active {
-    background-color: var(--button-hover);
-}
-
-#toolbar button.is-active {
-    background-color: var(--button-active-bg);
-    color: var(--button-active);
-}
-
-#toolbar button svg {
-    width: 16px;
-    height: 16px;
-}
-
-#toolbar .separator {
-    width: 1px;
-    height: 20px;
-    background-color: var(--toolbar-border);
-    margin: 0 4px;
-    flex-shrink: 0;
 }
 
 /* Editor Content */
@@ -222,6 +151,20 @@ html, body {
     border: none;
     border-top: 1px solid var(--hr-color);
     margin: 1.5em 0;
+}
+
+/* Images */
+.tiptap img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 0.75em 0;
+    display: block;
+}
+
+.tiptap img.ProseMirror-selectednode {
+    outline: 2px solid var(--link-color);
+    outline-offset: 2px;
 }
 
 /* Placeholder */
