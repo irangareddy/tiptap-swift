@@ -13,9 +13,13 @@ let package = Package(
             targets: ["TipTapSwift"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.14.3")
+    ],
     targets: [
         .target(
             name: "TipTapSwift",
+            dependencies: [.product(name: "SwiftSoup", package: "SwiftSoup")],
             resources: [
                 .copy("Resources/RichTextEditor")
             ]

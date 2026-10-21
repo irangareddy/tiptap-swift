@@ -35,7 +35,8 @@ public struct HTMLContentView: UIViewRepresentable {
 
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        config.dataDetectorTypes = [.phoneNumber, .link, .address]
+        config.dataDetectorTypes = []
+        config.websiteDataStore = .nonPersistent()
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "heightChanged")
         config.userContentController = contentController
@@ -49,13 +50,14 @@ public struct HTMLContentView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
 
         context.coordinator.webView = webView
-        loadContent(in: webView)
+        loadContent(in: webView, coordinator: context.coordinator)
 
         return webView
     }
 
     public func updateUIView(_ webView: WKWebView, context: Context) {
-        loadContent(in: webView)
+        context.coordinator.parent = self
+        loadContent(in: webView, coordinator: context.coordinator)
     }
 
     public static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
@@ -63,19 +65,38 @@ public struct HTMLContentView: UIViewRepresentable {
         coordinator.webView = nil
     }
 
-    private func loadContent(in webView: WKWebView) {
+    private func loadContent(in webView: WKWebView, coordinator: Coordinator) {
         let theme = colorScheme == .dark ? "dark" : "light"
-        let html = Self.wrapHTML(htmlContent, theme: theme)
+        guard coordinator.lastHTML != htmlContent || coordinator.lastTheme != theme else { return }
+        coordinator.lastHTML = htmlContent
+        coordinator.lastTheme = theme
+        let html = Self.wrapHTML(RichTextSanitizer.sanitize(htmlContent), theme: theme)
+        coordinator.navigationPolicy.beginLoad()
         webView.loadHTMLString(html, baseURL: nil)
     }
 
+    static let heightScript = """
+
+    function reportHeight() {
+        var height = document.body.scrollHeight;
+        window.webkit.messageHandlers.heightChanged.postMessage(height);
+    }
+    new ResizeObserver(reportHeight).observe(document.body);
+    reportHeight();
+
+    """
+    static let heightScriptHash = "625fEx6AWPsOnuJXABjxHUDCXpUeT5DboGCtH8dONeE="
+    static let contentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; "
+        + "img-src https: data:; font-src data:; script-src 'sha256-\(heightScriptHash)'"
+
     // swiftlint:disable function_body_length
-    private static func wrapHTML(_ content: String, theme: String) -> String {
+    static func wrapHTML(_ content: String, theme: String) -> String {
         """
         <!DOCTYPE html>
         <html data-theme="\(theme)">
         <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="\(contentSecurityPolicy)">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
         :root {
@@ -137,14 +158,7 @@ public struct HTMLContentView: UIViewRepresentable {
         </head>
         <body>
         \(content)
-        <script>
-        function reportHeight() {
-            var height = document.body.scrollHeight;
-            window.webkit.messageHandlers.heightChanged.postMessage(height);
-        }
-        new ResizeObserver(reportHeight).observe(document.body);
-        reportHeight();
-        </script>
+        <script>\(heightScript)</script>
         </body>
         </html>
         """
@@ -156,6 +170,9 @@ public struct HTMLContentView: UIViewRepresentable {
     public final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, @unchecked Sendable {
         var parent: HTMLContentView
         var webView: WKWebView?
+        var lastHTML: String?
+        var lastTheme: String?
+        var navigationPolicy = HTMLNavigationPolicy()
 
         init(_ parent: HTMLContentView) {
             self.parent = parent
@@ -177,12 +194,16 @@ public struct HTMLContentView: UIViewRepresentable {
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction
         ) async -> WKNavigationActionPolicy {
-            if navigationAction.navigationType == .linkActivated,
-               let url = navigationAction.request.url {
+            switch navigationPolicy.decide(
+                url: navigationAction.request.url,
+                type: navigationAction.navigationType,
+                isMainFrame: navigationAction.targetFrame?.isMainFrame == true
+            ) {
+            case .allow: return .allow
+            case .external(let url):
                 await UIApplication.shared.open(url)
                 return .cancel
-            } else {
-                return .allow
+            case .cancel: return .cancel
             }
         }
     }

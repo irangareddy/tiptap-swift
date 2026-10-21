@@ -40,7 +40,10 @@ public struct HTMLPreviewView: UIViewRepresentable {
 
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
+        config.websiteDataStore = .nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
@@ -65,7 +68,8 @@ public struct HTMLPreviewView: UIViewRepresentable {
         guard htmlContent != coordinator.lastHTML || theme != coordinator.lastTheme else { return }
         coordinator.lastHTML = htmlContent
         coordinator.lastTheme = theme
-        let html = Self.wrapHTML(htmlContent, theme: theme)
+        let html = Self.wrapHTML(RichTextSanitizer.sanitize(htmlContent), theme: theme)
+        coordinator.navigationPolicy.beginLoad()
         webView.loadHTMLString(html, baseURL: nil)
     }
 
@@ -75,6 +79,7 @@ public struct HTMLPreviewView: UIViewRepresentable {
         <html data-theme="\(theme)">
         <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; font-src data:; script-src 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
         :root {
@@ -140,9 +145,18 @@ public struct HTMLPreviewView: UIViewRepresentable {
 
     // MARK: - Coordinator
 
-    public final class Coordinator: NSObject, @unchecked Sendable {
+    public final class Coordinator: NSObject, WKNavigationDelegate, @unchecked Sendable {
         var webView: WKWebView?
+        var navigationPolicy = HTMLNavigationPolicy()
         var lastHTML = ""
         var lastTheme = ""
+
+        @MainActor
+        public func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
+            let decision = navigationPolicy.decide(
+                url: action.request.url, type: action.navigationType, isMainFrame: action.targetFrame?.isMainFrame == true
+            )
+            return decision == .allow ? .allow : .cancel
+        }
     }
 }
