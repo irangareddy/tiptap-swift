@@ -106,7 +106,7 @@ func cancelsNonLinkNavigation(type: WKNavigationType) {
     #expect(policy.decide(url: URL(string: "https://example.com"), type: type, isMainFrame: true) == .cancel)
 }
 
-@Test(arguments: ["javascript:alert(1)", "data:text/html,hi", "tel:123", "file:///tmp/a", "about:blank", "gobeet://events/a"])
+@Test(arguments: ["javascript:alert(1)", "data:text/html,hi", "vbscript:x", "file:///tmp/a", "about:blank", "gobeet://events/a"])
 func cancelsUnapprovedLinkSchemes(value: String) {
     var policy = HTMLNavigationPolicy()
     #expect(policy.decide(url: URL(string: value), type: .linkActivated, isMainFrame: true) == .cancel)
@@ -165,4 +165,18 @@ private final class HeightRecorder: NSObject, WKScriptMessageHandler {
         height = message.body as? CGFloat ?? 0
         expectation.fulfill()
     }
+}
+
+// DS §18.11 allows tel: links (tap to call).
+@Test func telLinksArePreserved() {
+    let clean = RichTextSanitizer.sanitize("<p><a href=\"tel:+14155550100\">Call</a></p>")
+    #expect(clean.contains("href=\"tel:+14155550100\""))
+    #expect(RichTextSanitizer.vettedURL("tel:+14155550100") == "tel:+14155550100")
+    #expect(RichTextSanitizer.vettedURL("javascript:alert(1)") == nil)
+}
+
+@Test func telLinkActivationOpensExternally() {
+    var policy = HTMLNavigationPolicy()
+    #expect(policy.decide(url: URL(string: "tel:+14155550100"), type: .linkActivated, isMainFrame: true)
+        == .external(URL(string: "tel:+14155550100")!))
 }

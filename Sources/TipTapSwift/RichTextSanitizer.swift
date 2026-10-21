@@ -40,7 +40,7 @@ enum RichTextSanitizer {
                     continue
                 }
                 let attribute = tag == "a" ? "href" : "src"
-                let schemes: Set<String> = tag == "a" ? ["http", "https", "mailto"] : ["https"]
+                let schemes: Set<String> = tag == "a" ? ["http", "https", "mailto", "tel"] : ["https"]
                 let url = vettedURL(try element.attr(attribute), schemes: schemes)
                 if tag == "img" && url == nil { continue }
                 if tag == "a" && url == nil {
@@ -56,13 +56,13 @@ enum RichTextSanitizer {
         }
     }
 
-    static func vettedURL(_ value: String, schemes: Set<String> = ["http", "https", "mailto"]) -> String? {
+    static func vettedURL(_ value: String, schemes: Set<String> = ["http", "https", "mailto", "tel"]) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let colon = trimmed.firstIndex(of: ":"),
               schemes.contains(String(trimmed[..<colon]).lowercased()),
               !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
               let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
-              scheme == "mailto" || url.host?.isEmpty == false else { return nil }
+              scheme == "mailto" || scheme == "tel" || url.host?.isEmpty == false else { return nil }
         return trimmed
     }
 }
